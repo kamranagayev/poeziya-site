@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редагувати поезію</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Редагувати поезію</h1>
+        <form method="POST">
+            <label for="title">Заголовок:</label>
+            <input type="text" id="title" name="title" value="{{ poem.title }}" required>
+            <br>
+
+            <label for="poem">Поезія:</label>
+            <textarea id="poem" name="poem" rows="5" cols="40" required>{{ poem.poem }}</textarea>
+            <br>
+
+            <button type="submit" class="btn">Зберегти</button>
+        </form>
+        <br>
+        <a href="/admin" class="btn">Назад</a>
+    </div>
+</body>
+</html>

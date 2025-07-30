@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Адмін панель</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        function changeCategory() {
+            document.getElementById('categoryForm').submit();
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Адмін панель</h1>
+
+        <!-- Kateqoriyanı seçmək üçün GET formu -->
+        <form method="GET" action="/admin" id="categoryForm">
+            <label for="category">Виберіть категорію:</label>
+            <select id="category" name="category" onchange="changeCategory()">
+                <option value="love" {% if current_category == "love" %}selected{% endif %}>Про кохання</option>
+                <option value="patriotic" {% if current_category == "patriotic" %}selected{% endif %}>Патріотичні</option>
+                <option value="philosophy" {% if current_category == "philosophy" %}selected{% endif %}>Філософські</option>
+                <option value="other" {% if current_category == "other" %}selected{% endif %}>Інші</option>
+            </select>
+        </form>
+
+        <br>
+
+        <!-- Poeziya əlavə etmək üçün POST formu -->
+        <form method="POST" action="/admin">
+            <input type="hidden" name="category" value="{{ current_category }}">
+            <label for="title">Заголовок:</label>
+            <input type="text" id="title" name="title" placeholder="Введіть заголовок">
+            <br>
+
+            <label for="poem">Поезія:</label>
+            <textarea id="poem" name="poem" rows="5" cols="40" placeholder="Введіть текст поезії"></textarea>
+            <br>
+
+            <button type="submit" class="btn" name="action" value="add">Додати</button>
+        </form>
+
+        <h2>Список поезій</h2>
+        {% for p in poems %}
+            <div class="single-poem">
+                <h3>{{ p.title }}</h3>
+                <pre>{{ p.poem }}</pre>
+                <form method="POST" action="/admin">
+                    <input type="hidden" name="delete_id" value="{{ p.id }}">
+                    <input type="hidden" name="category" value="{{ current_category }}">
+                    <button type="submit" name="action" value="delete">Видалити</button>
+                </form>
+                <a href="/edit/{{ current_category }}/{{ p.id }}">Редагувати</a>
+            </div>
+        {% endfor %}
+
+        <br>
+        <a href="/" class="btn">Назад</a>
+    </div>
+</body>
+</html>

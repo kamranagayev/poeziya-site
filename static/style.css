@@ -1,0 +1,105 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto Slab', serif;
+    background: linear-gradient(to bottom right, #ffb6c1, #ff69b4);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    text-align: center;
+    color: #000;
+    position: relative;
+    z-index: 0;
+}
+
+/* Güllü overlay */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url("/static/images/flowers.png") center/cover no-repeat;
+    opacity: 0.25;
+    z-index: -1;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    font-size: 3rem;
+    margin-top: 50px;
+    font-family: 'Roboto Slab', serif;
+    color: #000;
+    text-shadow: none;
+}
+
+.menu {
+    margin-top: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.5rem;
+    text-decoration: none;
+    color: #000;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.2s, background 0.3s;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+.poem-content {
+    margin: 20px 0;
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    text-align: left;        /* Sol tərəfdə görünsün */
+    white-space: pre-wrap;   /* <pre> içində uzun sətirləri bükmək üçün */
+}
+
+.poem-content pre {
+    font-family: 'Roboto Slab', serif;
+    font-size: 18px;
+    color: #333;
+    line-height: 1.6;
+    white-space: pre-wrap;   /* Orijinal formatı qoruyur */
+}
+
+.poem-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;             /* Başlığı tünd etmək */
+    margin-bottom: 10px;
+}
+
+.single-poem {
+    background: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+.poem-content {
+    display: block;          /* Flex və ya grid varsa söndürürük */
+    text-align: left;        /* Mətni sola yönəldirik */
+    padding-top: 10px;       /* Yuxarıdan boşluq */
+}
+
+.poem-content p {
+    margin-top: 0;           /* Yuxarı boşluğu sıfırla */
+}
