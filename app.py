@@ -1,7 +1,13 @@
+from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, render_template, request, redirect, url_for
 import os
 
 app = Flask(__name__)
+
+# PostgreSQL bağlantısı üçün environment dəyişəni
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 POEMS_DIR = "poeziya"
 
@@ -113,5 +119,36 @@ def other():
     poems = read_poem("other.txt")
     return render_template('poeziya.html', category_name="ІНШІ", poezia=poems)
 
+
+# 🔁 Köçürmə funksiyası
+def migrate_from_txt():
+    categories = ["love", "patriotic", "philosophy", "other"]
+    for category in categories:
+        filename = f"{category}.txt"
+        path = os.path.join(POEMS_DIR, filename)
+        if not os.path.exists(path):
+            continue
+
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read().strip().split("---")
+
+            for block in content:
+                lines = block.strip().split("\n")
+                if len(lines) > 1:
+                    title = lines[0].strip()
+                    poem_text = "\n".join(lines[1:]).strip()
+
+                    # Əgər bu şeir artıq bazada yoxdursa, əlavə et
+                    existing = Poem.query.filter_by(title=title, category=category).first()
+                    if not existing:
+                        new_poem = Poem(category=category, title=title, text=poem_text)
+                        db.session.add(new_poem)
+
+        db.session.commit()
+
+
+# ✅ ƏN ALTDA belə olmalıdır:
 if __name__ == '__main__':
+    with app.app_context():         # <-- Mütləq əlavə olunmalıdır
+        migrate_from_txt()          # <-- Bunu çağırırsan
     app.run(debug=True)
