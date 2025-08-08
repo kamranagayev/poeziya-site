@@ -1,154 +1,111 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask import Flask, render_template, request, redirect, url_for
+# app.py
 import os
+from flask import Flask, render_template, request, redirect, url_for
+from models import db, Poem
 
 app = Flask(__name__)
 
-# PostgreSQL bağlantısı üçün environment dəyişəni
+# Render Postgres URL (Render → Environment → DATABASE_URL)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+db.init_app(app)
 
+# TXT fayllar yalnız bir dəfəlik köçürmə üçündür
 POEMS_DIR = "poeziya"
 
-# Birdən çox poeziya oxuyan funksiya
-def read_poem(filename):
-    path = os.path.join(POEMS_DIR, filename)
-    poems = []
-    if os.path.exists(path):
+# --- TXT oxuyub DB-yə köçürmək üçün köməkçi ---
+def migrate_from_txt():
+    categories = ["love", "patriotic", "philosophy", "other"]
+    for category in categories:
+        path = os.path.join(POEMS_DIR, f"{category}.txt")
+        if not os.path.exists(path):
+            continue
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read().strip().split("---")
-            for index, poem_block in enumerate(content):
-                lines = poem_block.strip().split("\n")
-                if len(lines) > 1:
-                    title = lines[0].strip()
-                    poem_text = "\n".join(lines[1:]).strip()
-                    poems.append({"id": index, "title": title, "poem": poem_text})
-    return poems
+        for block in content:
+            lines = [l for l in block.strip().split("\n") if l.strip()]
+            if len(lines) > 1:
+                title = lines[0].strip()
+                text = "\n".join(lines[1:]).strip()
+                exists = Poem.query.filter_by(category=category, title=title, text=text).first()
+                if not exists:
+                    db.session.add(Poem(category=category, title=title, text=text))
+    db.session.commit()
 
-# Poeziya silən funksiya
-def delete_poem(category, poem_id):
-    filename = f"{category}.txt"
-    path = os.path.join(POEMS_DIR, filename)
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read().strip().split("---")
-        if 0 <= poem_id < len(content):
-            del content[poem_id]
-        with open(path, 'w', encoding='utf-8') as f:
-            if content:
-                f.write("---\n".join([c.strip() for c in content if c.strip()]) + "\n")
-            else:
-                f.write("")
+# --- İlk requestdə cədvəli yarat + DB boşdursa TXT-dən yüklə ---
+@app.before_first_request
+def init_db_and_maybe_migrate():
+    db.create_all()
+    if Poem.query.count() == 0:
+        migrate_from_txt()
 
-# Poeziya redaktə funksiyası
-def update_poem(category, poem_id, new_title, new_poem):
-    filename = f"{category}.txt"
-    path = os.path.join(POEMS_DIR, filename)
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read().strip().split("---")
+# --- (İstəyə görə) Dinamik səhifələrdə keşləməni söndür ---
+@app.after_request
+def no_cache(resp):
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
-        if 0 <= poem_id < len(content):
-            content[poem_id] = f"{new_title}\n{new_poem}\n"
-
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write("---\n".join([c.strip() for c in content if c.strip()]) + "\n")
-
+# ================== ROUTES (hamısı DB ilə işləyir) ==================
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
+    category = request.values.get('category', 'love')
+
     if request.method == 'POST':
-        category = request.form.get('category', 'love')
-        if request.form.get('action') == 'delete':
+        action = request.form.get('action')
+        if action == 'add':
+            title = (request.form.get('title') or '').strip()
+            text  = (request.form.get('poem')  or '').strip()
+            if title and text:
+                db.session.add(Poem(category=category, title=title, text=text))
+                db.session.commit()
+        elif action == 'delete':
             poem_id = int(request.form.get('delete_id'))
-            delete_poem(category, poem_id)
-        elif request.form.get('action') == 'add':
-            title = request.form.get('title')
-            poem = request.form.get('poem')
+            p = Poem.query.filter_by(id=poem_id, category=category).first()
+            if p:
+                db.session.delete(p)
+                db.session.commit()
 
-            if not os.path.exists(POEMS_DIR):
-                os.makedirs(POEMS_DIR)
-
-            filename = f"{category}.txt"
-            path = os.path.join(POEMS_DIR, filename)
-            with open(path, 'a', encoding='utf-8') as f:
-                f.write(title + "\n" + poem + "\n---\n")
-    else:
-        category = request.args.get('category', 'love')  # URL-dən oxuyuruq
-
-    poems = read_poem(f"{category}.txt")
-    return render_template('admin.html', poems=poems, current_category=category)
+    poems = Poem.query.filter_by(category=category).order_by(Poem.created_at.desc()).all()
+    view_poems = [{"id": p.id, "title": p.title, "poem": p.text} for p in poems]
+    return render_template('admin.html', poems=view_poems, current_category=category)
 
 @app.route('/edit/<category>/<int:poem_id>', methods=['GET', 'POST'])
 def edit_poem(category, poem_id):
-    poems = read_poem(f"{category}.txt")
-    poem_to_edit = next((p for p in poems if p["id"] == poem_id), None)
-
-    if poem_to_edit is None:
-        return "Поезію не знайдено!", 404
-
+    p = Poem.query.filter_by(id=poem_id, category=category).first()
+    if not p:
+        return "Poem not found", 404
     if request.method == 'POST':
-        new_title = request.form.get('title')
-        new_poem = request.form.get('poem')
-        update_poem(category, poem_id, new_title, new_poem)
-        return redirect(url_for('admin', category=category))  # Düzəliş edilmiş yönləndirmə
+        p.title = request.form.get('title', p.title)
+        p.text  = request.form.get('poem',  p.text)
+        db.session.commit()
+        return redirect(url_for('admin', category=category))
+    return render_template('edit.html', poem={"title": p.title, "poem": p.text}, category=category)
 
-    return render_template('edit.html', poem=poem_to_edit, category=category)
+def render_category(category_name, title_ua):
+    poems = Poem.query.filter_by(category=category_name).order_by(Poem.created_at.desc()).all()
+    return render_template('poeziya.html', category_name=title_ua,
+                           poezia=[{"title": p.title, "poem": p.text} for p in poems])
 
 @app.route('/love')
 def love():
-    poems = read_poem("love.txt")
-    return render_template('poeziya.html', category_name="ПРО ЛЮБОВ", poezia=poems)
+    return render_category("love", "ПРО ЛЮБОВ")
 
 @app.route('/patriotic')
 def patriotic():
-    poems = read_poem("patriotic.txt")
-    return render_template('poeziya.html', category_name="ПАТРІОТИЧНІ", poezia=poems)
+    return render_category("patriotic", "ПАТРІОТИЧНІ")
 
 @app.route('/philosophy')
 def philosophy():
-    poems = read_poem("philosophy.txt")
-    return render_template('poeziya.html', category_name="ФІЛОСОФСЬКІ", poezia=poems)
+    return render_category("philosophy", "ФІЛОСОФСЬКІ")
 
 @app.route('/other')
 def other():
-    poems = read_poem("other.txt")
-    return render_template('poeziya.html', category_name="ІНШІ", poezia=poems)
+    return render_category("other", "ІНШІ")
 
-
-# 🔁 Köçürmə funksiyası
-def migrate_from_txt():
-    categories = ["love", "patriotic", "philosophy", "other"]
-    for category in categories:
-        filename = f"{category}.txt"
-        path = os.path.join(POEMS_DIR, filename)
-        if not os.path.exists(path):
-            continue
-
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read().strip().split("---")
-
-            for block in content:
-                lines = block.strip().split("\n")
-                if len(lines) > 1:
-                    title = lines[0].strip()
-                    poem_text = "\n".join(lines[1:]).strip()
-
-                    # Əgər bu şeir artıq bazada yoxdursa, əlavə et
-                    existing = Poem.query.filter_by(title=title, category=category).first()
-                    if not existing:
-                        new_poem = Poem(category=category, title=title, text=poem_text)
-                        db.session.add(new_poem)
-
-        db.session.commit()
-
-
-# ✅ ƏN ALTDA belə olmalıdır:
+# Lokal işlədəndə lazım olsa
 if __name__ == '__main__':
-    with app.app_context():         # <-- Mütləq əlavə olunmalıdır
-        migrate_from_txt()          # <-- Bunu çağırırsan
     app.run(debug=True)
