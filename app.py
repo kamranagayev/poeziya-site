@@ -10,6 +10,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
+# App import olunanda DB-ni hazırla (Flask 3.1-də before_first_request yoxdur)
+with app.app_context():
+    db.create_all()
+    try:
+        if Poem.query.count() == 0:
+            migrate_from_txt()
+    except Exception as e:
+        # istəsən logda görünsün deyə
+        print("Init/migrate error:", e)
+
 # TXT fayllar yalnız bir dəfəlik köçürmə üçündür
 POEMS_DIR = "poeziya"
 
@@ -31,13 +41,6 @@ def migrate_from_txt():
                 if not exists:
                     db.session.add(Poem(category=category, title=title, text=text))
     db.session.commit()
-
-# --- İlk requestdə cədvəli yarat + DB boşdursa TXT-dən yüklə ---
-@app.before_first_request
-def init_db_and_maybe_migrate():
-    db.create_all()
-    if Poem.query.count() == 0:
-        migrate_from_txt()
 
 # --- (İstəyə görə) Dinamik səhifələrdə keşləməni söndür ---
 @app.after_request
