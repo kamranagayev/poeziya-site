@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Poeziya{% endblock %}</title>
+
+  <!-- Sənin mövcud CSS-in (əgər varsa) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    /* Yuxarı-solda “geri” düyməsi */
+    .back-btn{
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff;
+      color: #333;
+      font-size: 16px;
+      text-decoration: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .back-btn:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0,0,0,.2);
+    }
+
+    /* Sənin səhifə tərzin üçün sadə “konteyner” */
+    .page{
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .card{
+      width: 100%;
+      max-width: 760px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.12);
+      padding: 24px;
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  {# Ana səhifədə görünməsin #}
+  {% if request.path != url_for('index') %}
+  <a class="back-btn"
+     href="{{ request.referrer or url_for('index') }}"
+     onclick="if (history.length > 1) { history.back(); return false; }">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Назад</span>
+  </a>
+  {% endif %}
+
+  <main class="page">
+    <div class="card">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
